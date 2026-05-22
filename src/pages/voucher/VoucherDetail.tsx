@@ -9,6 +9,7 @@ import {
   VoucherStatus,
 } from "../../services/voucherApi";
 import { useWallet } from "../../context/WalletContext";
+import { getCategoryIcon, expiryBadge } from "../../types/voucher";
 
 const STATUS_LABEL: Record<VoucherStatus, string> = {
   PENDING: "발급 중",
@@ -127,8 +128,22 @@ export default function VoucherDetail() {
   const formattedCurrent = voucher.currentValue.toLocaleString("ko-KR") + "원";
   const formattedInitial = voucher.initialValue.toLocaleString("ko-KR") + "원";
   const shortOwner = maskWallet(voucher.ownerWallet);
+  const shortIssuer = maskWallet(voucher.issuedBy);
   const tokenLabel =
     voucher.onChainTokenId != null ? `Token #${voucher.onChainTokenId}` : "발급 처리 중";
+  const categoryIcon = getCategoryIcon(voucher.programCategory);
+  const expiry = expiryBadge(voucher.programValidUntil);
+  const expiryDateLabel = formatDate(voucher.programValidUntil);
+  // 소유자 표시: "닉네임 (0x...단축주소)" 또는 닉네임이 비었으면 주소만.
+  const ownerDisplay = voucher.ownerNickname
+    ? `${voucher.ownerNickname} (${shortOwner})`
+    : shortOwner;
+  const expiryLine =
+    expiry.days === null
+      ? "기한 없음"
+      : expiry.tone === "expired"
+        ? `${expiryDateLabel}까지 (만료됨)`
+        : `${expiryDateLabel}까지 (${expiry.label})`;
 
   // TODO: 결제 흐름이 가맹점 QR → 사용자 스캔으로 변경됨. 이 QR은 임시.
   const qrPayload = qrData ? JSON.stringify(qrData) : "";
@@ -164,16 +179,40 @@ export default function VoucherDetail() {
           className="absolute rounded-full pointer-events-none"
           style={{ width: 160, height: 160, top: -40, right: -40, background: "rgba(255,255,255,0.08)" }}
         />
-        <p className="text-xs text-white/75 font-medium">{voucher.programName}</p>
-        <p className="text-[30px] font-bold text-white mt-2 tracking-tight">{formattedCurrent}</p>
-        <p className="text-[11px] text-white/60 mt-1">원래 {formattedInitial}</p>
-        <div className="mt-2">
+        {/* 카테고리 아이콘 (큰 사이즈) */}
+        <div
+          className="absolute text-[64px] leading-none pointer-events-none select-none opacity-30"
+          style={{ top: 12, right: 16 }}
+          aria-hidden
+        >
+          {categoryIcon}
+        </div>
+        <div className="flex items-center gap-2 relative">
+          <span className="text-base leading-none" aria-hidden>{categoryIcon}</span>
+          <p className="text-xs text-white/75 font-medium truncate">{voucher.programName}</p>
+        </div>
+        <p className="text-[30px] font-bold text-white mt-2 tracking-tight relative">{formattedCurrent}</p>
+        <p className="text-[11px] text-white/60 mt-1 relative">원래 {formattedInitial}</p>
+        <div className="mt-2 flex items-center gap-2 flex-wrap relative">
           <span className="inline-flex items-center gap-1.5 text-xs font-semibold bg-white/20 text-white px-2.5 py-0.5 rounded-full">
             {isActive && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />}
             {STATUS_LABEL[voucher.status]}
           </span>
+          {expiry.days !== null && (
+            <span
+              className={`inline-flex items-center text-xs font-semibold px-2.5 py-0.5 rounded-full ${
+                expiry.tone === "expired"
+                  ? "bg-red-500/30 text-red-100"
+                  : expiry.tone === "warn"
+                    ? "bg-amber-400/30 text-amber-50"
+                    : "bg-white/15 text-white/90"
+              }`}
+            >
+              {expiry.label}
+            </span>
+          )}
         </div>
-        <div className="mt-6 flex items-end justify-between">
+        <div className="mt-6 flex items-end justify-between relative">
           <span className="font-mono text-[11px] text-white/60">{tokenLabel}</span>
           <span className="text-xs text-white/75">{formatDate(voucher.mintedAt)}</span>
         </div>
@@ -181,22 +220,37 @@ export default function VoucherDetail() {
 
       {/* 바우처 정보 */}
       <div className="px-6 mt-5 space-y-2">
-        {[
+        {([
           ["프로그램", voucher.programName],
-          ["소유자 지갑", shortOwner],
+          ["카테고리", `${categoryIcon} ${voucher.programCategory || "기타"}`],
+          ["유효기간", expiryLine, expiry.tone !== "ok" ? expiry.tone : undefined],
+          ["소유자", ownerDisplay],
+          ["발행 기관", shortIssuer],
           ["토큰 ID", tokenLabel],
           ["상태", STATUS_LABEL[voucher.status]],
           ["원래 금액", formattedInitial],
           ["발급일", formatDate(voucher.mintedAt)],
-        ].map(([label, value]) => (
-          <div
-            key={label}
-            className="flex items-center justify-between bg-v-surface rounded-v-md px-4 py-3 shadow-v-sm"
-          >
-            <span className="text-sm text-v-textMuted">{label}</span>
-            <span className="text-sm font-medium text-v-text">{value}</span>
-          </div>
-        ))}
+        ] as Array<[string, string, ("warn" | "expired" | undefined)?]>).map(
+          ([label, value, tone]) => (
+            <div
+              key={label}
+              className="flex items-center justify-between bg-v-surface rounded-v-md px-4 py-3 shadow-v-sm gap-3"
+            >
+              <span className="text-sm text-v-textMuted flex-shrink-0">{label}</span>
+              <span
+                className={`text-sm font-medium text-right truncate ${
+                  tone === "expired"
+                    ? "text-v-error"
+                    : tone === "warn"
+                      ? "text-amber-700"
+                      : "text-v-text"
+                }`}
+              >
+                {value}
+              </span>
+            </div>
+          ),
+        )}
       </div>
 
       {/* 사용하기 버튼 */}

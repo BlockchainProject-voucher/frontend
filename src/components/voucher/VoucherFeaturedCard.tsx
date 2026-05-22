@@ -1,5 +1,6 @@
 import React from "react";
 import { VoucherResponse, VoucherStatus } from "../../services/voucherApi";
+import { getCategoryIcon, expiryBadge } from "../../types/voucher";
 
 interface Props {
   voucher: VoucherResponse;
@@ -22,6 +23,15 @@ export default function VoucherFeaturedCard({ voucher, onClick }: Props) {
       : "";
   const formattedAmount = voucher.currentValue.toLocaleString("ko-KR") + "원";
   const isActive = voucher.status === "ACTIVE";
+  const icon = getCategoryIcon(voucher.programCategory);
+  const expiry = expiryBadge(voucher.programValidUntil);
+  // Featured 카드는 어두운 배경이라 별도 tone 클래스 대신 직접 색을 지정.
+  const expiryColorClass =
+    expiry.tone === "expired"
+      ? "bg-red-500/30 text-red-100"
+      : expiry.tone === "warn"
+        ? "bg-amber-400/30 text-amber-50"
+        : "bg-white/20 text-white";
 
   return (
     <div
@@ -55,24 +65,36 @@ export default function VoucherFeaturedCard({ voucher, onClick }: Props) {
       />
 
       {/* 카드 내용 */}
-      <p className="text-xs font-medium text-white/75 tracking-wide">
-        {voucher.programName}
-      </p>
+      <div className="flex items-center gap-2">
+        <span className="text-lg leading-none" aria-hidden>
+          {icon}
+        </span>
+        <p className="text-xs font-medium text-white/75 tracking-wide truncate">
+          {voucher.programName}
+        </p>
+      </div>
       <p className="mt-3 text-3xl font-bold text-white tracking-tight">
         {formattedAmount}
       </p>
 
-      {/* 상태 뱃지 */}
-      <div className="mt-1 flex items-center gap-2">
+      {/* 상태 + 만료 뱃지 */}
+      <div className="mt-1 flex items-center gap-2 flex-wrap">
         <span className="inline-flex items-center gap-1.5 text-xs font-semibold rounded-full px-2.5 py-0.5 bg-white/20 text-white">
           {isActive && (
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
           )}
           {STATUS_LABEL[voucher.status]}
         </span>
+        {expiry.days !== null && (
+          <span
+            className={`inline-flex items-center text-xs font-semibold rounded-full px-2.5 py-0.5 ${expiryColorClass}`}
+          >
+            {expiry.label}
+          </span>
+        )}
       </div>
 
-      {/* 하단 메타 — TODO: 만료일은 voucherProgramId로 program을 조회해야 알 수 있어 임시로 토큰 ID 표시 */}
+      {/* 하단 메타 */}
       <div className="mt-7 flex items-end justify-between">
         <span className="font-mono text-[11px] text-white/65">{shortAddress}</span>
         {voucher.onChainTokenId != null && (

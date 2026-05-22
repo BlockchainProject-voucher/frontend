@@ -1,5 +1,10 @@
 import React from "react";
 import { VoucherResponse, VoucherStatus } from "../../services/voucherApi";
+import {
+  getCategoryIcon,
+  expiryBadge,
+  EXPIRY_TONE_STYLE,
+} from "../../types/voucher";
 
 interface Props {
   voucher: VoucherResponse;
@@ -25,26 +30,26 @@ export default function VoucherListItem({ voucher, onClick }: Props) {
   const isInactive =
     voucher.status === "USED_UP" || voucher.status === "BURNED";
 
-  // TODO: 만료일은 voucher.voucherProgramId로 program을 조회해야 알 수 있다.
-  // 졸업 데모에서는 목록에 보여주지 않고 토큰 ID로 대체한다.
+  const icon = getCategoryIcon(voucher.programCategory);
+  const expiry = expiryBadge(voucher.programValidUntil);
+
+  // 사용 완료/소각인 경우 상태로, 그 외에는 카테고리명을 표시.
   const subLabel = isInactive
     ? STATUS_LABEL[voucher.status]
-    : voucher.onChainTokenId != null
-      ? `Token #${voucher.onChainTokenId}`
-      : "발급 처리 중";
+    : voucher.programCategory || "기타";
 
   return (
     <button
       className="w-full flex items-center justify-between py-3.5 border-b border-v-border last:border-b-0 text-left"
       onClick={onClick}
     >
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 min-w-0">
         <div className="w-10 h-10 rounded-v-md bg-v-accentLight flex items-center justify-center text-lg flex-shrink-0">
-          🎫
+          {icon}
         </div>
-        <div>
-          <p className="text-sm font-medium text-v-text">{voucher.programName}</p>
-          <p className="text-xs text-v-textMuted mt-0.5">{subLabel}</p>
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-v-text truncate">{voucher.programName}</p>
+          <p className="text-xs text-v-textMuted mt-0.5 truncate">{subLabel}</p>
         </div>
       </div>
 
@@ -54,11 +59,20 @@ export default function VoucherListItem({ voucher, onClick }: Props) {
         >
           {amount}
         </span>
-        <span
-          className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${STATUS_STYLE[voucher.status]}`}
-        >
-          {STATUS_LABEL[voucher.status]}
-        </span>
+        <div className="flex items-center gap-1">
+          {!isInactive && expiry.days !== null && (
+            <span
+              className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${EXPIRY_TONE_STYLE[expiry.tone]}`}
+            >
+              {expiry.label}
+            </span>
+          )}
+          <span
+            className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${STATUS_STYLE[voucher.status]}`}
+          >
+            {STATUS_LABEL[voucher.status]}
+          </span>
+        </div>
       </div>
     </button>
   );

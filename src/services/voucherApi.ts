@@ -58,8 +58,12 @@ export interface VoucherResponse {
   programName: string;
   ownerId: number;
   ownerWallet: string;
+  ownerNickname: string;
   currentValue: number;
   initialValue: number;
+  programCategory: string;
+  programValidUntil: string | null; // ISO LocalDateTime (no timezone)
+  issuedBy: string; // 발행 기관 지갑 주소
   tokenUri: string | null;
   txHash: string | null;
   blockNumber: number | null;
@@ -71,13 +75,21 @@ export interface VoucherResponse {
 export interface VoucherQrResponse {
   voucherId: number;
   ownerWallet: string;
+  ownerNickname: string;
   onChainTokenId: number | null;
   currentValue: number;
   programName: string;
+  category: string; // 백엔드는 QR 응답에서 SHORT 명(category)을 사용
+  expiryDate: string | null;
+  isValid: boolean; // 백엔드 계산: ACTIVE + currentValue>0 + not expired
 }
 
 export interface UseVoucherPrepareResponse {
   historyId: number;
+  voucherId: number;          // executeUse 호출 시 경로 변수로 필요
+  amount: number;             // 결제 금액 (화면 표시용, 원 단위)
+  merchantNickname: string;   // 가맹점 닉네임 (화면 표시용)
+  programName: string;        // 바우처 프로그램명 (화면 표시용)
   metadataHash: string;
   nonce: string; // BigInteger → 문자열로 전달됨
   deadline: number;
