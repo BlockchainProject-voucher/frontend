@@ -25,7 +25,7 @@ interface ApiResponse<T> {
 export type Role = "USER" | "MERCHANT" | "ADMIN";
 export type ProgramStatus = "ACTIVE" | "PAUSED" | "ENDED";
 export type VoucherStatus = "PENDING" | "ACTIVE" | "USED_UP" | "BURNED";
-export type UseStatus = "PENDING" | "SUCCESS" | "FAILED";
+export type UseStatus = "PENDING" | "CONFIRMED";
 
 export interface MemberResponse {
   id: number;
