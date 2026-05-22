@@ -3,6 +3,7 @@ import { Routes, Route, Navigate, Link, useLocation } from "react-router-dom";
 import MerchantScan from "./MerchantScan";
 import MerchantVerify from "./MerchantVerify";
 import MerchantHistory from "./MerchantHistory";
+import { useWallet } from "../../context/WalletContext";
 
 const NAV_ITEMS = [
   {
@@ -50,8 +51,18 @@ function MerchantBottomNav() {
 }
 
 export default function Merchant() {
+  const { logout } = useWallet();
   return (
     <div className="relative h-screen bg-v-bg max-w-[480px] mx-auto overflow-hidden font-sans">
+      {/* 우상단 로그아웃 — 가맹점 화면은 어두운 배경이라 라이트 톤 텍스트로 */}
+      <button
+        type="button"
+        onClick={logout}
+        className="absolute top-3 right-4 z-20 text-xs text-white/60 hover:text-white active:text-v-accent transition-colors px-2 py-1"
+        aria-label="로그아웃"
+      >
+        로그아웃
+      </button>
       <div className="h-full overflow-y-auto pb-16">
         <Routes>
           <Route path="/home" element={<MerchantScan />} />

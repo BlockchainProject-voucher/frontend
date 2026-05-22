@@ -13,10 +13,8 @@ export default function VoucherHome() {
     if (walletAddress) fetchVouchers(walletAddress);
   }, [walletAddress, fetchVouchers]);
 
-  const activeVouchers = vouchers.filter(
-    (v) => v.status === "active" || v.status === "pending"
-  );
-  const total = activeVouchers.reduce((sum, v) => sum + v.remainingAmount, 0);
+  const activeVouchers = vouchers.filter((v) => v.status === "ACTIVE");
+  const total = activeVouchers.reduce((sum, v) => sum + v.currentValue, 0);
 
   return (
     <div className="min-h-full">
@@ -88,15 +86,17 @@ export default function VoucherHome() {
           </div>
         ) : vouchers.length === 0 ? (
           <div className="bg-v-surface rounded-v-lg px-4 py-6 shadow-v-sm text-center">
-            <p className="text-v-textMuted text-sm">보유한 바우처가 없습니다</p>
+            <p className="text-v-textMuted text-sm">
+              보유한 바우처가 없습니다. 기관에서 발급을 기다려주세요.
+            </p>
           </div>
         ) : (
           <div className="bg-v-surface rounded-v-lg px-4 shadow-v-sm">
             {vouchers.slice(0, 3).map((v) => (
               <VoucherListItem
-                key={v.tokenId}
+                key={v.id}
                 voucher={v}
-                onClick={() => navigate(`/voucher/list/${v.tokenId}`)}
+                onClick={() => navigate(`/voucher/list/${v.id}`)}
               />
             ))}
           </div>

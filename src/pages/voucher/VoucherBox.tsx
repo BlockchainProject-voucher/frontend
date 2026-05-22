@@ -13,8 +13,8 @@ export default function VoucherBox() {
     if (walletAddress) fetchVouchers(walletAddress);
   }, [walletAddress, fetchVouchers]);
 
-  const usedVouchers = vouchers.filter((v) => v.status === "used");
-  const expiredVouchers = vouchers.filter((v) => v.status === "expired");
+  const usedVouchers = vouchers.filter((v) => v.status === "USED");
+  const expiredVouchers = vouchers.filter((v) => v.status === "EXPIRED");
   const totalCount = usedVouchers.length + expiredVouchers.length;
 
   return (
@@ -59,9 +59,9 @@ export default function VoucherBox() {
               <div className="bg-v-surface rounded-v-lg px-4 shadow-v-sm">
                 {usedVouchers.map((v) => (
                   <VoucherListItem
-                    key={v.tokenId}
+                    key={v.id}
                     voucher={v}
-                    onClick={() => navigate(`/voucher/list/${v.tokenId}`)}
+                    onClick={() => navigate(`/voucher/list/${v.id}`)}
                   />
                 ))}
               </div>
@@ -74,9 +74,9 @@ export default function VoucherBox() {
               <div className="bg-v-surface rounded-v-lg px-4 shadow-v-sm">
                 {expiredVouchers.map((v) => (
                   <VoucherListItem
-                    key={v.tokenId}
+                    key={v.id}
                     voucher={v}
-                    onClick={() => navigate(`/voucher/list/${v.tokenId}`)}
+                    onClick={() => navigate(`/voucher/list/${v.id}`)}
                   />
                 ))}
               </div>
