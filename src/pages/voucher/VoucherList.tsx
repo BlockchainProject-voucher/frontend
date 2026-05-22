@@ -17,7 +17,7 @@ export default function VoucherList() {
   const featured = vouchers.find((v) => v.status === "ACTIVE");
   const activeList = vouchers.filter((v) => v.status === "ACTIVE");
   const doneList = vouchers.filter(
-    (v) => v.status === "USED" || v.status === "EXPIRED" || v.status === "REVOKED"
+    (v) => v.status === "USED_UP" || v.status === "BURNED"
   );
 
   return (

@@ -7,25 +7,23 @@ interface Props {
 }
 
 const STATUS_LABEL: Record<VoucherStatus, string> = {
+  PENDING: "발급 중",
   ACTIVE: "사용 가능",
-  USED: "사용 완료",
-  EXPIRED: "만료",
-  REVOKED: "취소됨",
+  USED_UP: "사용 완료",
+  BURNED: "소각됨",
 };
 
 const STATUS_STYLE: Record<VoucherStatus, string> = {
+  PENDING: "bg-amber-100 text-amber-700",
   ACTIVE: "bg-v-successLight text-v-success",
-  USED: "bg-v-surface2 text-v-textMuted",
-  EXPIRED: "bg-v-errorLight text-v-error",
-  REVOKED: "bg-v-surface2 text-v-textMuted",
+  USED_UP: "bg-v-surface2 text-v-textMuted",
+  BURNED: "bg-v-errorLight text-v-error",
 };
 
 export default function VoucherListItem({ voucher, onClick }: Props) {
   const amount = voucher.currentValue.toLocaleString("ko-KR") + "원";
   const isInactive =
-    voucher.status === "USED" ||
-    voucher.status === "EXPIRED" ||
-    voucher.status === "REVOKED";
+    voucher.status === "USED_UP" || voucher.status === "BURNED";
 
   // TODO: 만료일은 voucher.voucherProgramId로 program을 조회해야 알 수 있다.
   // 졸업 데모에서는 목록에 보여주지 않고 토큰 ID로 대체한다.

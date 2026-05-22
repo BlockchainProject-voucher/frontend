@@ -11,10 +11,10 @@ import {
 import { useWallet } from "../../context/WalletContext";
 
 const STATUS_LABEL: Record<VoucherStatus, string> = {
+  PENDING: "발급 중",
   ACTIVE: "사용 가능",
-  USED: "사용 완료",
-  EXPIRED: "만료",
-  REVOKED: "취소됨",
+  USED_UP: "사용 완료",
+  BURNED: "소각됨",
 };
 
 function formatDate(iso: string | null): string {

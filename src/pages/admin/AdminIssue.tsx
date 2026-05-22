@@ -85,8 +85,16 @@ export default function AdminIssue() {
       }
       setRecipientAddress("");
     } catch (err: any) {
-      const backendMsg = err?.response?.data?.message;
-      showToast(backendMsg ?? err?.message ?? "바우처 발급에 실패했습니다.");
+      const status = err?.response?.status;
+      if (status === 504) {
+        showToast(
+          "민팅이 40초 안에 완료되지 않았습니다. DB엔 저장됐으니 잠시 후 바우처 목록에서 확인해주세요.",
+          "info"
+        );
+      } else {
+        const backendMsg = err?.response?.data?.message;
+        showToast(backendMsg ?? err?.message ?? "바우처 발급에 실패했습니다.");
+      }
     } finally {
       setLoading(false);
     }
