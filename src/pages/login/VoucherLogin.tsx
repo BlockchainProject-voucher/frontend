@@ -13,13 +13,24 @@ import { signLoginMessage } from "../../services/web3/signLoginMessage";
 import { ensureGanacheNetwork } from "../../services/web3/network";
 import Toast from "../../components/Toast";
 
-type Step = "connect" | "nickname" | "role" | "category" | "signing";
+type Step = "connect" | "nickname" | "role" | "personalInfo" | "category" | "signing";
+
+const REGIONS = [
+  "서울", "부산", "대구", "인천", "광주", "대전", "울산", "세종",
+  "경기", "강원", "충북", "충남", "전북", "전남", "경북", "경남", "제주",
+];
 
 const CATEGORY_OPTIONS = [
-  { key: "일반 음식점", label: "일반 음식점", icon: "🍽️" },
-  { key: "영화관", label: "영화관", icon: "🎬" },
-  { key: "카페", label: "카페", icon: "☕" },
-  { key: "편의점", label: "편의점", icon: "🏪" },
+  { key: "음식점", label: "음식점" },
+  { key: "카페/베이커리", label: "카페/베이커리" },
+  { key: "편의점/마트", label: "편의점/마트" },
+  { key: "영화관", label: "영화관" },
+  { key: "공연/전시", label: "공연/전시" },
+  { key: "도서/문구", label: "도서/문구" },
+  { key: "스포츠/레저", label: "스포츠/레저" },
+  { key: "병원/약국", label: "병원/약국" },
+  { key: "교육/학원", label: "교육/학원" },
+  { key: "미용/뷰티", label: "미용/뷰티" },
 ];
 
 const ROLE_OPTIONS = [
@@ -70,6 +81,9 @@ export default function VoucherLogin() {
   const [localWallet, setLocalWallet] = useState<string>("");
   const [step, setStep] = useState<Step>("connect");
   const [nicknameInput, setNicknameInput] = useState("");
+  const [nameInput, setNameInput] = useState("");
+  const [birthDateInput, setBirthDateInput] = useState("");
+  const [regionInput, setRegionInput] = useState("");
   const [pendingRole, setPendingRole] = useState<"user" | "merchant" | null>(null);
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState<{ msg: string; type: "error" | "success" | "info" } | null>(null);
@@ -128,11 +142,10 @@ export default function VoucherLogin() {
   const handleConnect = async () => {
     setLoading(true);
     try {
-      // 1) Ganache 네트워크 강제 (MetaMask가 메인넷이면 자동 전환)
+      // 1) Ganache 네트워크 강제
       try {
         await ensureGanacheNetwork();
       } catch (e) {
-        // 사용자 거부여도 일단 다음 단계로. 서명 단계에서 어차피 실패하면 알린다.
         console.warn("[VoucherLogin] ensureGanacheNetwork 실패:", e);
       }
 
@@ -147,24 +160,33 @@ export default function VoucherLogin() {
       // 3) 가입 여부 조회
       const exists = await checkMemberExists(address);
       if (exists) {
-        // 기존 회원 — getMember로 role/nickname 가져온 뒤 바로 서명 단계로
+        // 기존 회원 — 먼저 서명/JWT 발급 후, JWT로 getMember 호출
+        setStep("signing");
         try {
+          const nonce = await getNonce(address);
+          const signature = await signLoginMessage(address, nonce);
+          const jwt = await verifyLogin(address, signature);
+          // JWT 저장 먼저
+          loginSuccess(jwt, address);
+          // 이제 인증된 상태로 회원 정보 조회
           const member: MemberResponse = await getMember(address);
           if (member.nickname) setNickname(member.nickname);
           const apiRole: "user" | "merchant" | "admin" =
             member.role === "MERCHANT" ? "merchant" :
             member.role === "ADMIN" ? "admin" : "user";
           setRole(apiRole);
-          await doSignAndVerify(address, apiRole, "connect");
+          if (apiRole === "merchant") navigate("/merchant/home", { replace: true });
+          else if (apiRole === "admin") navigate("/admin/home", { replace: true });
+          else navigate("/voucher/home", { replace: true });
         } catch (e: any) {
-          showToast(e?.response?.data?.message ?? "회원 정보 조회에 실패했습니다.");
+          showToast(e?.response?.data?.message ?? e?.message ?? "로그인에 실패했습니다.");
+          setStep("connect");
         }
       } else {
         // 신규 회원 — 닉네임 입력으로 이동
         setStep("nickname");
       }
     } catch (err: any) {
-      // MetaMask 거부 (code 4001) 또는 기타
       const code = err?.code;
       if (code === 4001) {
         showToast("사용자가 연결을 거부했습니다.");
@@ -191,7 +213,14 @@ export default function VoucherLogin() {
       setStep("category");
       return;
     }
-    // USER — 즉시 등록 후 서명
+    // USER — 개인정보 입력 스텝으로
+    setStep("personalInfo");
+  };
+
+  const handlePersonalInfoSubmit = async () => {
+    if (!nameInput.trim()) { showToast("이름을 입력해주세요."); return; }
+    if (!birthDateInput) { showToast("생년월일을 입력해주세요."); return; }
+    if (!regionInput) { showToast("지역을 선택해주세요."); return; }
     await registerAndSign("user", null);
   };
 
@@ -236,6 +265,9 @@ export default function VoucherLogin() {
         await registerUser({
           walletAddress: localWallet,
           nickname: nick,
+          name: nameInput.trim(),
+          birthDate: birthDateInput,
+          region: regionInput,
         });
       }
       setNickname(nick);
@@ -360,6 +392,59 @@ export default function VoucherLogin() {
           </div>
         )}
 
+        {/* Step 3-1: 개인정보 입력 (사용자 전용) */}
+        {step === "personalInfo" && (
+          <div className="space-y-4">
+            <div className="text-center mb-2">
+              <p className="text-v-text font-semibold">개인정보를 입력해주세요</p>
+              <p className="text-xs text-v-textMuted mt-1">바우처 자격 확인에 사용됩니다</p>
+            </div>
+            <input
+              type="text"
+              value={nameInput}
+              onChange={(e) => setNameInput(e.target.value)}
+              placeholder="이름"
+              maxLength={50}
+              className="w-full px-4 py-3 rounded-v-md border border-v-border bg-v-surface text-v-text text-sm outline-none focus:border-v-accent transition-colors"
+            />
+            <div>
+              <label className="text-xs text-v-textMuted mb-1 block">생년월일</label>
+              <input
+                type="date"
+                value={birthDateInput}
+                onChange={(e) => setBirthDateInput(e.target.value)}
+                max={new Date().toISOString().split("T")[0]}
+                className="w-full px-4 py-3 rounded-v-md border border-v-border bg-v-surface text-v-text text-sm outline-none focus:border-v-accent transition-colors"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-v-textMuted mb-1 block">지역</label>
+              <select
+                value={regionInput}
+                onChange={(e) => setRegionInput(e.target.value)}
+                className="w-full px-4 py-3 rounded-v-md border border-v-border bg-v-surface text-v-text text-sm outline-none focus:border-v-accent transition-colors"
+              >
+                <option value="">지역 선택</option>
+                {REGIONS.map((r) => (
+                  <option key={r} value={r}>{r}</option>
+                ))}
+              </select>
+            </div>
+            <button
+              onClick={handlePersonalInfoSubmit}
+              disabled={loading || !nameInput.trim() || !birthDateInput || !regionInput}
+              className="w-full py-4 rounded-v-lg bg-v-accent text-white font-semibold text-[15px] shadow-v-md active:bg-v-accentHover transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+            >
+              {loading ? (
+                <span className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+              ) : "완료"}
+            </button>
+            <button onClick={() => setStep("role")} disabled={loading} className="w-full py-3 text-sm text-v-textMuted disabled:opacity-60">
+              뒤로
+            </button>
+          </div>
+        )}
+
         {/* Step 4: 가맹점 카테고리 선택 */}
         {step === "category" && (
           <div className="space-y-3">
@@ -374,7 +459,6 @@ export default function VoucherLogin() {
                 disabled={loading}
                 className="w-full flex items-center gap-4 px-5 py-4 rounded-v-lg bg-v-surface border border-v-border active:border-v-accent active:bg-v-accentLight transition-colors text-left disabled:opacity-60"
               >
-                <span className="text-2xl">{cat.icon}</span>
                 <p className="text-sm font-semibold text-v-text">{cat.label}</p>
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4 text-v-textMuted ml-auto">
                   <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />

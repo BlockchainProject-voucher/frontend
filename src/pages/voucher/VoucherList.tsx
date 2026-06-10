@@ -15,7 +15,8 @@ export default function VoucherList() {
   }, [walletAddress, fetchVouchers]);
 
   const featured = vouchers.find((v) => v.status === "ACTIVE");
-  const activeList = vouchers.filter((v) => v.status === "ACTIVE");
+  const pendingList = vouchers.filter((v) => v.status === "PENDING");
+  const activeList = vouchers.filter((v) => v.status === "ACTIVE" && v.id !== featured?.id);
   const doneList = vouchers.filter(
     (v) => v.status === "USED_UP" || v.status === "BURNED"
   );
@@ -59,6 +60,22 @@ export default function VoucherList() {
             </div>
           )}
 
+          {/* 발급 대기 중 */}
+          {pendingList.length > 0 && (
+            <div className="px-6 mt-5">
+              <h2 className="text-sm font-semibold text-amber-600 mb-2">발급 대기 중</h2>
+              <div className="bg-amber-50 border border-amber-200 rounded-v-lg px-4">
+                {pendingList.map((v) => (
+                  <VoucherListItem
+                    key={v.id}
+                    voucher={v}
+                    onClick={() => navigate(`/voucher/list/${v.id}`)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* 보유 중 */}
           {activeList.length > 0 && (
             <div className="px-6 mt-5">
@@ -94,8 +111,14 @@ export default function VoucherList() {
           {vouchers.length === 0 && !error && (
             <div className="flex flex-col items-center justify-center mt-24 px-6 text-center">
               <p className="text-v-textMuted text-sm">
-                보유한 바우처가 없습니다. 기관에서 발급을 기다려주세요.
+                보유한 바우처가 없습니다.
               </p>
+              <button
+                onClick={() => navigate("/voucher/programs")}
+                className="mt-3 px-4 py-2 rounded-v-md bg-v-accentLight text-v-accent text-xs font-medium"
+              >
+                바우처 신청하러 가기
+              </button>
             </div>
           )}
         </>

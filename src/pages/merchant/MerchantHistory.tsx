@@ -1,57 +1,48 @@
 import React, { useEffect, useState } from "react";
-import { getVoucherHistory } from "../../services/voucherApi";
-import { useWallet } from "../../context/WalletContext";
+import { getMerchantHistory, VoucherUseHistoryResponse } from "../../services/voucherApi";
 import Toast from "../../components/Toast";
 
-interface UseRecord {
-  tokenId: number;
-  usedAmount: number;
-  usedAt: string;
-  txHash?: string;
+function formatDate(val: string): string {
+  if (!val) return "-";
+  const d = new Date(val);
+  if (isNaN(d.getTime())) return val;
+  return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
-function formatDate(val: string | number): string {
-  if (!val) return "-";
-  // 타임스탬프(초)
-  if (typeof val === "number" || /^\d{10,}/.test(String(val))) {
-    const d = new Date(Number(val) * 1000);
-    return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+function statusLabel(rec: { status: string; deadline?: number | null }): { text: string; cls: string } {
+  if (rec.status === "CONFIRMED") return { text: "완료", cls: "text-green-600 bg-green-50" };
+  if (rec.status === "PENDING") {
+    const expired = rec.deadline != null && rec.deadline < Math.floor(Date.now() / 1000);
+    return expired
+      ? { text: "만료됨", cls: "text-gray-500 bg-gray-100" }
+      : { text: "대기 중", cls: "text-amber-600 bg-amber-50" };
   }
-  return String(val);
+  return { text: "실패", cls: "text-red-600 bg-red-50" };
 }
 
 export default function MerchantHistory() {
-  const { walletAddress } = useWallet();
-  const [records, setRecords] = useState<UseRecord[]>([]);
+  const [records, setRecords] = useState<VoucherUseHistoryResponse[]>([]);
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!walletAddress) return;
     setLoading(true);
-    getVoucherHistory(walletAddress)
-      .then((res) => {
-        const data = (res.data?.body ?? []).map((item: any) => ({
-          tokenId: Number(item.tokenId),
-          usedAmount: Number(item.usedAmount ?? item.amount ?? 0),
-          usedAt: item.usedAt ?? item.timestamp ?? "",
-          txHash: item.txHash ?? "",
-        }));
-        setRecords(data);
-      })
+    getMerchantHistory()
+      .then(setRecords)
       .catch((err) => {
         setToast(err?.response?.data?.message ?? "사용 내역을 불러오지 못했습니다.");
       })
       .finally(() => setLoading(false));
-  }, [walletAddress]);
+  }, []);
 
-  const totalPending = records.reduce((sum, r) => sum + r.usedAmount, 0);
+  const confirmedTotal = records
+    .filter((r) => r.status === "CONFIRMED")
+    .reduce((sum, r) => sum + r.amount, 0);
 
   return (
     <div className="min-h-full">
       <div className="h-12" />
 
-      {/* 헤더 */}
       <div className="px-6 flex items-center gap-2">
         <h1 className="text-[20px] font-bold text-v-text">사용 내역</h1>
         {records.length > 0 && (
@@ -61,20 +52,16 @@ export default function MerchantHistory() {
         )}
       </div>
 
-      {/* 정산 대기 금액 카드 */}
       {!loading && records.length > 0 && (
         <div className="px-6 mt-4">
           <div
             className="rounded-v-lg p-5 relative overflow-hidden"
             style={{ background: "linear-gradient(135deg, #2563EB 0%, #1E40AF 100%)" }}
           >
-            <div
-              className="absolute rounded-full pointer-events-none"
-              style={{ width: 140, height: 140, top: -30, right: -30, background: "rgba(255,255,255,0.08)" }}
-            />
-            <p className="text-xs text-white/70 font-medium">정산 대기 금액</p>
+            <div className="absolute rounded-full pointer-events-none" style={{ width: 140, height: 140, top: -30, right: -30, background: "rgba(255,255,255,0.08)" }} />
+            <p className="text-xs text-white/70 font-medium">완료된 결제 합계</p>
             <p className="text-[26px] font-bold text-white mt-1 tracking-tight">
-              {totalPending.toLocaleString("ko-KR")}원
+              {confirmedTotal.toLocaleString("ko-KR")}원
             </p>
             <p className="text-[11px] text-white/65 mt-1">총 {records.length}건</p>
           </div>
@@ -94,35 +81,34 @@ export default function MerchantHistory() {
         </div>
       ) : (
         <div className="px-6 mt-4 space-y-2">
-          {records.map((rec, idx) => (
-            <div
-              key={`${rec.tokenId}-${idx}`}
-              className="bg-v-surface rounded-v-lg px-4 py-3.5 shadow-v-sm"
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-semibold text-v-text">
-                    Token #{rec.tokenId}
+          {records.map((rec) => {
+            const { text, cls } = statusLabel(rec);
+            return (
+              <div key={rec.id} className="bg-v-surface rounded-v-lg px-4 py-3.5 shadow-v-sm">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-semibold text-v-text truncate">
+                        {(rec as any).programName ?? `바우처 #${rec.voucherId}`}
+                      </p>
+                      <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0 ${cls}`}>{text}</span>
+                    </div>
+                    <p className="text-xs text-v-textMuted mt-0.5">{formatDate(rec.usedAt)}</p>
+                  </div>
+                  <p className="text-base font-bold text-v-accent flex-shrink-0">
+                    -{rec.amount.toLocaleString("ko-KR")}원
                   </p>
-                  <p className="text-xs text-v-textMuted mt-0.5">{formatDate(rec.usedAt)}</p>
                 </div>
-                <p className="text-base font-bold text-v-accent">
-                  -{rec.usedAmount.toLocaleString("ko-KR")}원
-                </p>
+                {rec.txHash && (
+                  <p className="text-[10px] text-v-textMuted font-mono mt-1.5 truncate">{rec.txHash}</p>
+                )}
               </div>
-              {rec.txHash && (
-                <p className="text-[10px] text-v-textMuted font-mono mt-1.5 truncate">
-                  {rec.txHash}
-                </p>
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
-      {toast && (
-        <Toast message={toast} type="error" onClose={() => setToast(null)} />
-      )}
+      {toast && <Toast message={toast} type="error" onClose={() => setToast(null)} />}
     </div>
   );
 }

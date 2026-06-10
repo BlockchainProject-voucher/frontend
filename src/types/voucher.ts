@@ -42,8 +42,18 @@ export const CATEGORY_LABEL: Record<Voucher["category"], string> = {
 // =============================================================================
 
 export const CATEGORY_ICONS: Record<string, string> = {
-  "일반 음식점": "🍽️",
+  "음식점": "🍽️",
+  "카페/베이커리": "☕",
+  "편의점/마트": "🏪",
   "영화관": "🎬",
+  "공연/전시": "🎭",
+  "도서/문구": "📚",
+  "스포츠/레저": "⚽",
+  "병원/약국": "💊",
+  "교육/학원": "📖",
+  "미용/뷰티": "💇",
+  // 레거시 호환
+  "일반 음식점": "🍽️",
   "카페": "☕",
   "편의점": "🏪",
 };
@@ -52,7 +62,9 @@ export const DEFAULT_CATEGORY_ICON = "🎫";
 
 export function getCategoryIcon(category: string | null | undefined): string {
   if (!category) return DEFAULT_CATEGORY_ICON;
-  return CATEGORY_ICONS[category] ?? DEFAULT_CATEGORY_ICON;
+  // comma-separated인 경우 첫 번째 카테고리 아이콘 반환
+  const first = category.split(",")[0].trim();
+  return CATEGORY_ICONS[first] ?? DEFAULT_CATEGORY_ICON;
 }
 
 // =============================================================================

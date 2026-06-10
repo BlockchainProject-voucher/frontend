@@ -1,9 +1,12 @@
 import React from "react";
 import { Routes, Route, Navigate, Link, useLocation } from "react-router-dom";
+import { useWallet } from "../../context/WalletContext";
 import AdminHome from "./AdminHome";
 import AdminCreate from "./AdminCreate";
 import AdminIssue from "./AdminIssue";
 import AdminMerchantApprove from "./AdminMerchantApprove";
+import AdminProgramDetail from "./AdminProgramDetail";
+import AdminProgramEdit from "./AdminProgramEdit";
 
 const NAV_ITEMS = [
   {
@@ -68,14 +71,24 @@ function AdminBottomNav() {
 }
 
 export default function Admin() {
+  const { logout } = useWallet();
   return (
     <div className="relative h-screen bg-v-bg max-w-[480px] mx-auto overflow-hidden font-sans">
+      <button
+        onClick={logout}
+        className="absolute top-3 right-4 z-20 text-xs text-v-textMuted px-3 py-1.5 rounded-full bg-v-surface2 border border-v-border active:bg-v-surface transition-colors"
+        aria-label="로그아웃"
+      >
+        로그아웃
+      </button>
       <div className="h-full overflow-y-auto pb-16">
         <Routes>
           <Route path="/home" element={<AdminHome />} />
           <Route path="/create" element={<AdminCreate />} />
           <Route path="/issue" element={<AdminIssue />} />
           <Route path="/merchant-approve" element={<AdminMerchantApprove />} />
+          <Route path="/programs/:id" element={<AdminProgramDetail />} />
+          <Route path="/programs/edit/:id" element={<AdminProgramEdit />} />
           <Route path="*" element={<Navigate to="/admin/home" replace />} />
         </Routes>
       </div>

@@ -222,7 +222,7 @@ export default function VoucherDetail() {
       <div className="px-6 mt-5 space-y-2">
         {([
           ["프로그램", voucher.programName],
-          ["카테고리", `${categoryIcon} ${voucher.programCategory || "기타"}`],
+          ["카테고리", `${categoryIcon} ${(voucher.programCategory || "기타").split(",")[0].trim()}`],
           ["유효기간", expiryLine, expiry.tone !== "ok" ? expiry.tone : undefined],
           ["소유자", ownerDisplay],
           ["발행 기관", shortIssuer],

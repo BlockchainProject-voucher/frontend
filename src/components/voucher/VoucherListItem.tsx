@@ -36,7 +36,7 @@ export default function VoucherListItem({ voucher, onClick }: Props) {
   // 사용 완료/소각인 경우 상태로, 그 외에는 카테고리명을 표시.
   const subLabel = isInactive
     ? STATUS_LABEL[voucher.status]
-    : voucher.programCategory || "기타";
+    : (voucher.programCategory || "기타").split(",")[0].trim();
 
   return (
     <button

@@ -25,15 +25,18 @@ interface ApiResponse<T> {
 export type Role = "USER" | "MERCHANT" | "ADMIN";
 export type ProgramStatus = "ACTIVE" | "PAUSED" | "ENDED";
 export type VoucherStatus = "PENDING" | "ACTIVE" | "USED_UP" | "BURNED";
-export type UseStatus = "PENDING" | "SUCCESS" | "FAILED";
+export type UseStatus = "PENDING" | "CONFIRMED" | "FAILED";
 
 export interface MemberResponse {
   id: number;
   walletAddress: string;
   nickname: string;
+  name: string | null;
+  birthDate: string | null;
+  region: string | null;
   role: Role;
   category: string | null;
-  createdAt: string; // LocalDateTime → ISO string
+  createdAt: string;
 }
 
 export interface VoucherProgramResponse {
@@ -48,6 +51,12 @@ export interface VoucherProgramResponse {
   validFrom: string;
   validUntil: string;
   status: ProgramStatus;
+  minAge: number | null;
+  maxAge: number | null;
+  allowedRegions: string | null;
+  usageGuide: string | null;
+  issuanceGuide: string | null;
+  refundPolicy: string | null;
   createdAt: string;
 }
 
@@ -108,6 +117,7 @@ export interface VoucherUseHistoryResponse {
   txHash: string | null;
   blockNumber: number | null;
   status: UseStatus;
+  deadline: number | null;
   usedAt: string;
 }
 
@@ -118,6 +128,9 @@ export interface VoucherUseHistoryResponse {
 export interface CreateUserRequestDto {
   walletAddress: string;
   nickname: string;
+  name: string;
+  birthDate: string; // YYYY-MM-DD
+  region: string;
 }
 
 export interface CreateMerchantRequestDto {
@@ -133,8 +146,14 @@ export interface CreateVoucherProgramRequest {
   maxValue: number;
   totalSupply: number;
   category: string;
-  validFrom: string; // ISO 8601
+  validFrom: string;
   validUntil: string;
+  minAge?: number;
+  maxAge?: number;
+  allowedRegions?: string;
+  usageGuide?: string;
+  issuanceGuide?: string;
+  refundPolicy?: string;
 }
 
 export interface CreateVoucherRequestDto {
@@ -238,6 +257,21 @@ export async function getVoucherProgram(
   return res.data.data;
 }
 
+export async function updateVoucherProgram(
+  id: number,
+  req: CreateVoucherProgramRequest
+): Promise<VoucherProgramResponse> {
+  const res = await axiosApi.put<ApiResponse<VoucherProgramResponse>>(
+    `/api/voucher-programs/${id}`,
+    req
+  );
+  return res.data.data;
+}
+
+export async function deleteVoucherProgram(id: number): Promise<void> {
+  await axiosApi.delete(`/api/voucher-programs/${id}`);
+}
+
 // =============================================================================
 // Vouchers
 // =============================================================================
@@ -325,6 +359,31 @@ export async function merchantPrepareUse(
     req
   );
   return res.data.data;
+}
+
+export async function applyVoucher(
+  voucherProgramId: number,
+  walletAddress: string
+): Promise<VoucherResponse> {
+  const res = await axiosApi.post<ApiResponse<VoucherResponse>>(
+    `/api/vouchers/apply`,
+    { voucherProgramId, walletAddress }
+  );
+  return res.data.data;
+}
+
+export async function getMerchantHistory(): Promise<VoucherUseHistoryResponse[]> {
+  const res = await axiosApi.get<ApiResponse<VoucherUseHistoryResponse[]>>(
+    `/api/merchant/history`
+  );
+  return res.data.data;
+}
+
+export async function getPaymentStatus(historyId: number): Promise<string> {
+  const res = await axiosApi.get<ApiResponse<{ status: string }>>(
+    `/api/merchant/history/${historyId}/status`
+  );
+  return res.data.data.status;
 }
 
 // =============================================================================

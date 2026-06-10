@@ -1,14 +1,25 @@
 import React from "react";
 import { Routes, Route, Navigate, Link, useLocation } from "react-router-dom";
+import MerchantHome from "./MerchantHome";
 import MerchantScan from "./MerchantScan";
 import MerchantVerify from "./MerchantVerify";
 import MerchantHistory from "./MerchantHistory";
+import MerchantProfile from "./MerchantProfile";
 import { useWallet } from "../../context/WalletContext";
 
 const NAV_ITEMS = [
   {
-    label: "스캔",
+    label: "홈",
     path: "/merchant/home",
+    icon: (
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="w-6 h-6">
+        <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 12 8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
+      </svg>
+    ),
+  },
+  {
+    label: "스캔",
+    path: "/merchant/scan",
     icon: (
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="w-6 h-6">
         <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 3.75 9.375v-4.5ZM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 0 1-1.125-1.125v-4.5ZM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 13.5 9.375v-4.5Z" />
@@ -22,6 +33,15 @@ const NAV_ITEMS = [
     icon: (
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="w-6 h-6">
         <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0ZM3.75 12h.007v.008H3.75V12Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm-.375 5.25h.007v.008H3.75v-.008Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
+      </svg>
+    ),
+  },
+  {
+    label: "내 정보",
+    path: "/merchant/profile",
+    icon: (
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="w-6 h-6">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 21v-7.5a.75.75 0 0 1 .75-.75h3a.75.75 0 0 1 .75.75V21m-4.5 0H2.36m11.14 0H18m0 0h3.64m-1.39 0V9.349M3.75 21V9.349m0 0a3.001 3.001 0 0 0 3.75-.615A2.993 2.993 0 0 0 9.75 9.75c.896 0 1.7-.393 2.25-1.016a2.993 2.993 0 0 0 2.25 1.016c.896 0 1.7-.393 2.25-1.015a3.001 3.001 0 0 0 3.75.614m-16.5 0a3.004 3.004 0 0 1-.621-4.72l1.189-1.19A1.5 1.5 0 0 1 5.378 3h13.243a1.5 1.5 0 0 1 1.06.44l1.19 1.189a3 3 0 0 1-.621 4.72M6.75 18h3.75a.75.75 0 0 0 .75-.75V13.5a.75.75 0 0 0-.75-.75H6.75a.75.75 0 0 0-.75.75v3.75c0 .414.336.75.75.75Z" />
       </svg>
     ),
   },
@@ -51,23 +71,15 @@ function MerchantBottomNav() {
 }
 
 export default function Merchant() {
-  const { logout } = useWallet();
   return (
     <div className="relative h-screen bg-v-bg max-w-[480px] mx-auto overflow-hidden font-sans">
-      {/* 우상단 로그아웃 — 가맹점 화면은 어두운 배경이라 라이트 톤 텍스트로 */}
-      <button
-        type="button"
-        onClick={logout}
-        className="absolute top-3 right-4 z-20 text-xs text-white/60 hover:text-white active:text-v-accent transition-colors px-2 py-1"
-        aria-label="로그아웃"
-      >
-        로그아웃
-      </button>
       <div className="h-full overflow-y-auto pb-16">
         <Routes>
-          <Route path="/home" element={<MerchantScan />} />
+          <Route path="/home" element={<MerchantHome />} />
+          <Route path="/scan" element={<MerchantScan />} />
           <Route path="/verify" element={<MerchantVerify />} />
           <Route path="/history" element={<MerchantHistory />} />
+          <Route path="/profile" element={<MerchantProfile />} />
           <Route path="*" element={<Navigate to="/merchant/home" replace />} />
         </Routes>
       </div>

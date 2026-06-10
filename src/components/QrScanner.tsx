@@ -41,11 +41,10 @@ export default function QrScanner({
   className = "",
 }: QrScannerProps) {
   const [permission, setPermission] = useState<PermissionState>("checking");
+  const [facingMode, setFacingMode] = useState<"environment" | "user">("environment");
   const [retryKey, setRetryKey] = useState(0);
-  // 동일 페이로드가 빠르게 연속 발사되는 것을 막기 위한 디바운스
   const lastScanRef = useRef<{ data: string; at: number } | null>(null);
 
-  // 카메라 권한 요청
   useEffect(() => {
     let cancelled = false;
 
@@ -54,23 +53,26 @@ export default function QrScanner({
       return;
     }
 
+    // 후면 카메라 먼저 시도, 없으면 전면으로 fallback (노트북 대응)
     navigator.mediaDevices
       .getUserMedia({ video: { facingMode: "environment" } })
       .then((stream) => {
-        // 권한 확인 후 즉시 트랙 정리 — 실제 스트림은 라이브러리가 다시 요청
         stream.getTracks().forEach((t) => t.stop());
-        if (!cancelled) setPermission("granted");
+        if (!cancelled) { setFacingMode("environment"); setPermission("granted"); }
       })
-      .catch((err: Error) => {
-        if (!cancelled) {
-          setPermission("denied");
-          onError?.(err);
-        }
+      .catch(() => {
+        navigator.mediaDevices
+          .getUserMedia({ video: { facingMode: "user" } })
+          .then((stream) => {
+            stream.getTracks().forEach((t) => t.stop());
+            if (!cancelled) { setFacingMode("user"); setPermission("granted"); }
+          })
+          .catch((err: Error) => {
+            if (!cancelled) { setPermission("denied"); onError?.(err); }
+          });
       });
 
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [retryKey, onError]);
 
   const handleDecode = useCallback(
@@ -136,23 +138,19 @@ export default function QrScanner({
   return (
     <div
       className={`relative w-full overflow-hidden rounded-v-lg bg-black shadow-v-md ${className}`}
+      style={{ height: 300 }}
     >
-      <YudielQrScanner
-        onDecode={handleDecode}
-        onError={handleError}
-        constraints={{ facingMode: "environment" }}
-        scanDelay={300}
-        hideCount
-        containerStyle={{
-          width: "100%",
-          paddingTop: 0,
-        }}
-        videoStyle={{
-          width: "100%",
-          height: "100%",
-          objectFit: "cover",
-        }}
-      />
+      <div className="absolute inset-0">
+        <YudielQrScanner
+          onDecode={handleDecode}
+          onError={handleError}
+          constraints={{ facingMode }}
+          scanDelay={300}
+          hideCount
+          containerStyle={{ width: "100%", height: "100%", paddingTop: 0 }}
+          videoStyle={{ width: "100%", height: "100%", objectFit: "cover" }}
+        />
+      </div>
 
       {/* 모서리 브래킷 오버레이 (장식용) */}
       <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
