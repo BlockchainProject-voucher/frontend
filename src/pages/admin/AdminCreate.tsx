@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { createVoucherProgram } from "../../services/voucherApi";
 import { useWallet } from "../../context/WalletContext";
 import Toast from "../../components/Toast";
+import { KOREA_REGIONS } from "../../types/regions";
 
 const CATEGORIES = ["일반 음식점", "영화관", "카페", "편의점"];
 
@@ -20,12 +21,14 @@ export default function AdminCreate() {
 
   const [form, setForm] = useState({
     name: "",
-    description: "",
     maxValue: "",
     totalSupply: "",
     category: "일반 음식점",
     validFrom: "",
     validUntil: "",
+    minAge: "",
+    maxAge: "",
+    allowedRegions: "",
   });
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState<{ msg: string; type: "error" | "success" | "info" } | null>(null);
@@ -69,12 +72,14 @@ export default function AdminCreate() {
       const res = await createVoucherProgram({
         walletAddress,
         name: form.name,
-        description: form.description || undefined,
         maxValue,
         totalSupply,
         category: form.category,
         validFrom: validFromIso,
         validUntil: validUntilIso,
+        minAge: form.minAge ? Number(form.minAge) : undefined,
+        maxAge: form.maxAge ? Number(form.maxAge) : undefined,
+        allowedRegions: form.allowedRegions.trim() || undefined,
       });
 
       showToast(`프로그램 #${res.id} "${res.name}" 생성 완료!`, "success");
@@ -111,19 +116,6 @@ export default function AdminCreate() {
             onChange={handleChange("name")}
             placeholder="예: 청년 식비 지원 바우처"
             className="w-full px-4 py-3 rounded-v-md border border-v-border bg-v-surface text-v-text text-sm outline-none focus:border-v-accent transition-colors"
-          />
-        </div>
-
-        <div>
-          <label className="text-sm font-semibold text-v-text block mb-1.5">
-            설명 <span className="text-v-textMuted font-normal">(선택)</span>
-          </label>
-          <textarea
-            value={form.description}
-            onChange={handleChange("description")}
-            placeholder="프로그램에 대한 간단한 설명"
-            rows={2}
-            className="w-full px-4 py-3 rounded-v-md border border-v-border bg-v-surface text-v-text text-sm outline-none focus:border-v-accent transition-colors resize-none"
           />
         </div>
 
@@ -180,6 +172,79 @@ export default function AdminCreate() {
             onChange={handleChange("validUntil")}
             className="w-full px-4 py-3 rounded-v-md border border-v-border bg-v-surface text-v-text text-sm outline-none focus:border-v-accent transition-colors"
           />
+        </div>
+
+        {/* 자격 요건 섹션 */}
+        <div className="pt-4 mt-2 border-t border-v-border">
+          <h2 className="text-sm font-semibold text-v-text">자격 요건 <span className="text-v-textMuted font-normal">(선택)</span></h2>
+          <p className="text-xs text-v-textMuted mt-1">비워두면 누구나 신청 가능합니다.</p>
+        </div>
+
+        <div>
+          <label className="text-sm font-semibold text-v-text block mb-1.5">
+            최소 나이 <span className="text-v-textMuted font-normal">(선택)</span>
+          </label>
+          <input
+            type="number"
+            value={form.minAge}
+            onChange={handleChange("minAge")}
+            placeholder="예: 19"
+            className="w-full px-4 py-3 rounded-v-md border border-v-border bg-v-surface text-v-text text-sm outline-none focus:border-v-accent transition-colors"
+          />
+        </div>
+
+        <div>
+          <label className="text-sm font-semibold text-v-text block mb-1.5">
+            최대 나이 <span className="text-v-textMuted font-normal">(선택)</span>
+          </label>
+          <input
+            type="number"
+            value={form.maxAge}
+            onChange={handleChange("maxAge")}
+            placeholder="예: 34"
+            className="w-full px-4 py-3 rounded-v-md border border-v-border bg-v-surface text-v-text text-sm outline-none focus:border-v-accent transition-colors"
+          />
+        </div>
+
+        <div>
+          <label className="text-sm font-semibold text-v-text block mb-1.5">
+            허용 지역 <span className="text-v-textMuted font-normal">(선택, 복수 가능)</span>
+          </label>
+          <div className="flex flex-wrap gap-2">
+            {KOREA_REGIONS.map((r) => {
+              const selected = form.allowedRegions
+                .split(",")
+                .map((x) => x.trim())
+                .filter(Boolean)
+                .includes(r);
+              return (
+                <button
+                  key={r}
+                  type="button"
+                  onClick={() => {
+                    const current = form.allowedRegions
+                      .split(",")
+                      .map((x) => x.trim())
+                      .filter(Boolean);
+                    const next = selected
+                      ? current.filter((x) => x !== r)
+                      : [...current, r];
+                    setForm((prev) => ({ ...prev, allowedRegions: next.join(",") }));
+                  }}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                    selected
+                      ? "bg-v-accent text-white border-v-accent"
+                      : "bg-v-surface text-v-text border-v-border hover:border-v-accent"
+                  }`}
+                >
+                  {r}
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-[11px] text-v-textMuted mt-2">
+            아무것도 선택하지 않으면 모든 지역에서 신청 가능합니다.
+          </p>
         </div>
 
         <button

@@ -25,12 +25,15 @@ interface ApiResponse<T> {
 export type Role = "USER" | "MERCHANT" | "ADMIN";
 export type ProgramStatus = "ACTIVE" | "PAUSED" | "ENDED";
 export type VoucherStatus = "PENDING" | "ACTIVE" | "USED_UP" | "BURNED";
-export type UseStatus = "PENDING" | "CONFIRMED";
+export type UseStatus = "PENDING" | "CONFIRMED" | "FAILED";
 
 export interface MemberResponse {
   id: number;
   walletAddress: string;
   nickname: string;
+  name: string | null;
+  birthDate: string | null; // ISO date "YYYY-MM-DD"
+  region: string | null;
   role: Role;
   category: string | null;
   createdAt: string; // LocalDateTime → ISO string
@@ -48,6 +51,12 @@ export interface VoucherProgramResponse {
   validFrom: string;
   validUntil: string;
   status: ProgramStatus;
+  minAge: number | null;
+  maxAge: number | null;
+  allowedRegions: string | null; // 콤마 구분, 예: "서울,경기"
+  usageGuide: string | null;
+  issuanceGuide: string | null;
+  refundPolicy: string | null;
   createdAt: string;
 }
 
@@ -72,6 +81,18 @@ export interface VoucherResponse {
   createdAt: string;
 }
 
+export interface VoucherQrResponse {
+  voucherId: number;
+  ownerWallet: string;
+  ownerNickname: string;
+  onChainTokenId: number | null;
+  currentValue: number;
+  programName: string;
+  category: string; // 백엔드는 QR 응답에서 SHORT 명(category)을 사용
+  expiryDate: string | null;
+  isValid: boolean; // 백엔드 계산: ACTIVE + currentValue>0 + not expired
+}
+
 export interface UseVoucherPrepareResponse {
   historyId: number;
   voucherId: number;          // executeUse 호출 시 경로 변수로 필요
@@ -89,6 +110,8 @@ export interface VoucherUseHistoryResponse {
   voucherId: number;
   onChainTokenId: number | null;
   merchantWallet: string;
+  merchantNickname: string;
+  programName: string;
   amount: number;
   oldValue: number;
   newValue: number;
@@ -96,7 +119,8 @@ export interface VoucherUseHistoryResponse {
   txHash: string | null;
   blockNumber: number | null;
   status: UseStatus;
-  usedAt: string;
+  deadline: number;
+  usedAt: string | null;
 }
 
 // =============================================================================
@@ -106,6 +130,14 @@ export interface VoucherUseHistoryResponse {
 export interface CreateUserRequestDto {
   walletAddress: string;
   nickname: string;
+  name: string;
+  birthDate: string; // ISO date "YYYY-MM-DD"
+  region: string;
+}
+
+export interface ApplyVoucherRequestDto {
+  voucherProgramId: number;
+  walletAddress: string;
 }
 
 export interface CreateMerchantRequestDto {
@@ -123,11 +155,12 @@ export interface CreateVoucherProgramRequest {
   category: string;
   validFrom: string; // ISO 8601
   validUntil: string;
-}
-
-export interface CreateVoucherRequestDto {
-  voucherProgramId: number;
-  walletAddress: string;
+  minAge?: number;
+  maxAge?: number;
+  allowedRegions?: string; // 콤마 구분, 예: "서울,경기"
+  usageGuide?: string;
+  issuanceGuide?: string;
+  refundPolicy?: string;
 }
 
 export interface UseVoucherPrepareRequestDto {
@@ -145,6 +178,12 @@ export interface UseVoucherPrepareRequestDto {
 export interface UseVoucherRequestDto {
   historyId: number;
   ownerSignature: string;
+}
+
+export interface MerchantPrepareRequestDto {
+  voucherId: number;
+  ownerWallet: string;
+  amount: number;
 }
 
 // =============================================================================
@@ -168,6 +207,18 @@ export async function registerUser(
   return res.data.data;
 }
 
+// 자격 기반 자동 신청 — 백엔드가 회원의 birthDate/region을 프로그램의
+// minAge/maxAge/allowedRegions와 비교해 통과 시 자동 민팅, 미달 시 거부.
+export async function applyVoucher(
+  req: ApplyVoucherRequestDto
+): Promise<VoucherResponse> {
+  const res = await axiosApi.post<ApiResponse<VoucherResponse>>(
+    `/api/vouchers/apply`,
+    req
+  );
+  return res.data.data;
+}
+
 export async function registerMerchant(
   req: CreateMerchantRequestDto
 ): Promise<MemberResponse> {
@@ -181,18 +232,6 @@ export async function registerMerchant(
 export async function getMember(walletAddress: string): Promise<MemberResponse> {
   const res = await axiosApi.get<ApiResponse<MemberResponse>>(
     `/api/members/${walletAddress}`
-  );
-  return res.data.data;
-}
-
-export async function approveMerchantOnChain(
-  walletAddress: string,
-  approved: boolean
-): Promise<MemberResponse> {
-  const res = await axiosApi.post<ApiResponse<MemberResponse>>(
-    `/api/members/merchant/${walletAddress}/approve`,
-    null,
-    { params: { approved } }
   );
   return res.data.data;
 }
@@ -231,16 +270,6 @@ export async function getVoucherProgram(
 // Vouchers
 // =============================================================================
 
-export async function issueVoucher(
-  req: CreateVoucherRequestDto
-): Promise<VoucherResponse> {
-  const res = await axiosApi.post<ApiResponse<VoucherResponse>>(
-    `/api/vouchers`,
-    req
-  );
-  return res.data.data;
-}
-
 // 신규 시그니처: 백엔드 ApiResponse를 풀어서 VoucherResponse[] 그대로 반환.
 // 기존 hooks/useVoucherList.ts 가 res.data.body 형태로 접근하는 레거시 시그니처는
 // 파일 하단의 legacyGetMyVouchers / 기본 export 별칭으로 유지된다.
@@ -260,6 +289,22 @@ export async function getVoucher(
   const res = await axiosApi.get<ApiResponse<VoucherResponse>>(
     `/api/vouchers/${id}`,
     { params: { walletAddress } }
+  );
+  return res.data.data;
+}
+
+export async function getVoucherQrData(id: number): Promise<VoucherQrResponse> {
+  const res = await axiosApi.get<ApiResponse<VoucherQrResponse>>(
+    `/api/vouchers/${id}/qr`
+  );
+  return res.data.data;
+}
+
+export async function getPendingUseRequests(): Promise<
+  UseVoucherPrepareResponse[]
+> {
+  const res = await axiosApi.get<ApiResponse<UseVoucherPrepareResponse[]>>(
+    `/api/vouchers/pending-use`
   );
   return res.data.data;
 }
@@ -287,59 +332,73 @@ export async function executeUseVoucher(
 }
 
 // =============================================================================
-// Payment Session (신규 결제 흐름 — 가맹점이 QR 생성 → 사용자가 스캔)
+// Merchant
 // =============================================================================
-//
-// 흐름:
-//   1) [가맹점] POST /api/merchant/payment-session { amount }
-//        → PaymentSessionResponse { paymentId, merchantWallet, amount, deadline, status: PENDING }
-//   2) [가맹점] paymentId+merchantWallet+amount+deadline 4개 필드를 QR로 인코딩해 화면에 표시
-//   3) [가맹점] GET /api/merchant/payment-status/{paymentId} 를 2초 간격으로 폴링
-//   4) [사용자] QR 스캔 → 본인 ACTIVE 바우처 선택 → prepareUseVoucher(paymentId 포함) →
-//      EIP-712 서명 → executeUseVoucher
-//   5) [백엔드] executeUseVoucher 성공 시 PaymentSession.status = COMPLETED + txHash 기록
-//   6) [가맹점] 다음 폴링에서 COMPLETED 감지 → "결제 완료!" 화면 전환
 
-export type PaymentSessionStatus =
-  | "PENDING"
-  | "COMPLETED"
-  | "EXPIRED"
-  | "CANCELED";
-
-export interface PaymentSessionResponse {
-  paymentId: string; // UUID 36자
-  merchantWallet: string; // 0x... lowercase
-  amount: number;
-  deadline: number; // epoch seconds (UNIX timestamp)
-  status: PaymentSessionStatus;
-}
-
-export interface PaymentStatusResponse {
-  paymentId: string;
-  status: PaymentSessionStatus;
-  txHash: string | null;
-  completedAt: string | null; // ISO LocalDateTime
-}
-
-export interface CreatePaymentSessionRequest {
-  amount: number;
-}
-
-export async function createPaymentSession(
-  req: CreatePaymentSessionRequest
-): Promise<PaymentSessionResponse> {
-  const res = await axiosApi.post<ApiResponse<PaymentSessionResponse>>(
-    `/api/merchant/payment-session`,
+export async function merchantPrepareUse(
+  req: MerchantPrepareRequestDto
+): Promise<UseVoucherPrepareResponse> {
+  const res = await axiosApi.post<ApiResponse<UseVoucherPrepareResponse>>(
+    `/api/merchant/vouchers/use/prepare`,
     req
   );
   return res.data.data;
 }
 
-export async function getPaymentStatus(
-  paymentId: string
-): Promise<PaymentStatusResponse> {
-  const res = await axiosApi.get<ApiResponse<PaymentStatusResponse>>(
-    `/api/merchant/payment-status/${paymentId}`
+// 가맹점 본인이 받은 결제 내역 — 최신순. JWT 지갑 = 가맹점.
+export async function getMerchantHistory(): Promise<VoucherUseHistoryResponse[]> {
+  const res = await axiosApi.get<ApiResponse<VoucherUseHistoryResponse[]>>(
+    `/api/merchant/history`
+  );
+  return res.data.data;
+}
+
+// 특정 결제 요청의 status만 조회. 가맹점이 prepare 후 사용자 서명 완료
+// 여부를 폴링할 때 사용. 반환값: "PENDING" | "CONFIRMED" | "FAILED".
+export async function getMerchantHistoryStatus(historyId: number): Promise<UseStatus> {
+  const res = await axiosApi.get<ApiResponse<{ status: UseStatus }>>(
+    `/api/merchant/history/${historyId}/status`
+  );
+  return res.data.data.status;
+}
+
+// =============================================================================
+// Admin — 토큰 무결성 검증 (온체인 vs DB 일치 여부 확인)
+// =============================================================================
+//
+// 백엔드가 같은 tokenId 의 NFT 상태를 (1) 스마트 컨트랙트 (2) MySQL 두 곳에서
+// 동시에 조회한 뒤 잔액/해시/nonce 3가지 축으로 비교 결과를 돌려준다.
+// status:
+//   - VERIFIED         : 양쪽 모두 존재 + 3축 모두 일치
+//   - MISMATCH         : 양쪽 모두 존재하나 하나 이상 불일치
+//   - MISSING_DB       : 온체인엔 있는데 DB 누락
+//   - MISSING_ONCHAIN  : DB엔 있는데 온체인 누락
+
+export interface VerificationResponse {
+  tokenId: number;
+  status: "VERIFIED" | "MISMATCH" | "MISSING_DB" | "MISSING_ONCHAIN";
+
+  dbValue: number | null;
+  onChainValue: number | null;
+  valueMatch: boolean;
+
+  dbHashes: string[] | null;
+  onChainHashes: string[] | null;
+  hashMatch: boolean;
+
+  dbNonce: number | null;
+  onChainNonce: number | null;
+  nonceMatch: boolean;
+
+  ownerWallet: string | null;
+  programName: string | null;
+  checkedAt: string;
+  message: string;
+}
+
+export async function verifyToken(tokenId: number): Promise<VerificationResponse> {
+  const res = await axiosApi.get<ApiResponse<VerificationResponse>>(
+    `/api/verify/${tokenId}`
   );
   return res.data.data;
 }
